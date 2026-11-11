@@ -1,0 +1,30 @@
+[project]
+name = "ai4mia-assignment4"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "ShimSoonYong", email = "simsoonyong@yonsei.ac.kr" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.11.2",
+    "monai>=1.6.1",
+    "nibabel>=5.5.0",
+    "numpy>=2.5.4",
+    "pandas>=3.1.1",
+    "pillow>=13.0.0",
+    "pygments>=2.21.0",
+    "scikit-image>=0.26.0",
+    "scipy>=1.18.1",
+    "torch>=2.15.0",
+    "torchvision>=0.29.2",
+    "tqdm>=4.70.1",
+]
+
+[project.scripts]
+ai4mia-assignment4 = "ai4mia_assignment4:main"
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14.0"]
+build-backend = "uv_build"

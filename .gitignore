@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Raw dataset & archives
+AI4MIA_Assignment4_Dataset.zip
+AI4MIA_Assignment4_Dataset/
+data/processed_slices/
+
+# Model weights & checkpoints
+checkpoints/
+*.pth
+*.pt
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.fdb_latexmk
+*.fls
+*.synctex.gz
