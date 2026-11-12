@@ -26,3 +26,4 @@ checkpoints/
 *.fdb_latexmk
 *.fls
 *.synctex.gz
+*.npz
