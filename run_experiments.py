@@ -177,9 +177,38 @@ def run_single_experiment(
 
     history: List[Dict[str, float]] = []
     best_val_ssim = -1.0
+    start_epoch = 1
     t_start = time.time()
 
-    for epoch in range(1, total_epochs + 1):
+    latest_ckpt = ckpt_dir / "latest_checkpoint.pth"
+    if latest_ckpt.exists():
+        try:
+            loaded_state = torch.load(latest_ckpt, map_location=model.device, weights_only=False)
+            model.netG_A.load_state_dict(loaded_state["netG_A"])
+            model.netG_B.load_state_dict(loaded_state["netG_B"])
+            model.netD_A.load_state_dict(loaded_state["netD_A"])
+            model.netD_B.load_state_dict(loaded_state["netD_B"])
+            model.optimizer_G.load_state_dict(loaded_state["opt_G"])
+            model.optimizer_D.load_state_dict(loaded_state["opt_D"])
+            model.scheduler_G.load_state_dict(loaded_state["sched_G"])
+            model.scheduler_D.load_state_dict(loaded_state["sched_D"])
+            start_epoch = loaded_state["epoch"] + 1
+            history = loaded_state.get("history", [])
+            best_val_ssim = loaded_state.get("best_val_ssim", -1.0)
+            print(f"Resuming {exp_name} from epoch {start_epoch}/{total_epochs}...")
+        except Exception as e:
+            print(f"Warning: could not load latest_checkpoint.pth: {e}")
+    elif (ckpt_dir / "best_model.pth").exists() and exp_name == "unet_128":
+        try:
+            model.load_checkpoint(str(ckpt_dir / "best_model.pth"))
+            start_epoch = 95
+            for _ in range(94):
+                model.step_schedulers()
+            print(f"Resuming unet_128 from epoch 95/{total_epochs} using saved best_model weights...")
+        except Exception as e:
+            print(f"Warning: could not resume unet_128 best_model: {e}")
+
+    for epoch in range(start_epoch, total_epochs + 1):
         ep_t0 = time.time()
         # Reshuffle unpaired domains at the start of every epoch
         train_ds.shuffle_domains()
@@ -221,6 +250,24 @@ def run_single_experiment(
             )
 
         history.append(ep_record)
+
+        # Save latest_checkpoint after every epoch for seamless recovery
+        torch.save(
+            {
+                "epoch": epoch,
+                "netG_A": model.netG_A.state_dict(),
+                "netG_B": model.netG_B.state_dict(),
+                "netD_A": model.netD_A.state_dict(),
+                "netD_B": model.netD_B.state_dict(),
+                "opt_G": model.optimizer_G.state_dict(),
+                "opt_D": model.optimizer_D.state_dict(),
+                "sched_G": model.scheduler_G.state_dict(),
+                "sched_D": model.scheduler_D.state_dict(),
+                "best_val_ssim": best_val_ssim,
+                "history": history,
+            },
+            ckpt_dir / "latest_checkpoint.pth",
+        )
 
     total_train_time = float(time.time() - t_start)
     model.save_checkpoint(str(ckpt_dir / "final_model.pth"))

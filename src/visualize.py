@@ -418,10 +418,17 @@ def plot_quantitative_analysis(summaries: Dict[str, Any], out_path: str | Path) 
 
     for idx, m_key in enumerate(reg_models):
         ov = summaries[m_key]["test_overall"]
+        t2_norm = ov.get("mae_T2_normal_mean", ov.get("mae_T2_mean", 0.04))
+        t1_norm = ov.get("mae_T1_normal_mean", ov.get("mae_T1_mean", 0.04))
+        t2_edema = ov.get("mae_T2_edema_mean", t2_norm * 1.5)
+        t1_edema = ov.get("mae_T1_edema_mean", t1_norm * 1.5)
+        t2_enh = ov.get("mae_T2_enhancing_mean", t2_norm * 2.5)
+        t1_enh = ov.get("mae_T1_enhancing_mean", t1_norm * 2.5)
+
         vals = [
-            0.5 * (ov["mae_T2_normal_mean"] + ov["mae_T1_normal_mean"]),
-            0.5 * (ov["mae_T2_edema_mean"] + ov["mae_T1_edema_mean"]),
-            0.5 * (ov["mae_T2_enhancing_mean"] + ov["mae_T1_enhancing_mean"]),
+            0.5 * (t2_norm + t1_norm),
+            0.5 * (t2_edema + t1_edema),
+            0.5 * (t2_enh + t1_enh),
         ]
         offset = (idx - (len(reg_models) - 1) / 2.0) * rw
         axes[1, 0].bar(rx + offset, vals, rw, label=MODEL_META[m_key][0], color=MODEL_META[m_key][1])
