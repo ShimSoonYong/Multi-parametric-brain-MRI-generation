@@ -137,10 +137,10 @@ def update_latex_with_results(summary_path: Path, tex_path: Path) -> None:
     lines.append(r"\end{tabular}")
     new_table_body = "\n".join(lines)
 
-    # Replace table body in LaTeX
+    # Replace table body in LaTeX safely using lambda to avoid regex escape issues
     pattern = re.compile(r"\\begin\{tabular\}\{lcccc\}.*?\\end\{tabular\}", re.DOTALL)
     if pattern.search(tex_content):
-        updated_tex = pattern.sub(new_table_body, tex_content)
+        updated_tex = pattern.sub(lambda _: new_table_body, tex_content)
         tex_path.write_text(updated_tex)
         print("Updated LaTeX table with real quantitative test metrics.")
 
