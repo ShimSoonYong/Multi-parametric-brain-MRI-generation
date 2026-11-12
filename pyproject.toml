@@ -5,7 +5,7 @@ description = "Multi-Parametric Brain MRI Generation Using Unpaired Cycle-Consis
 readme = "README.md"
 license = "MIT"
 authors = [
-    { name = "SoonYong Shim", email = "simsoonyong@yonsei.ac.kr" }
+    { name = "ShimSoonYong", email = "simsoonyong@yonsei.ac.kr" }
 ]
 requires-python = ">=3.12"
 dependencies = [

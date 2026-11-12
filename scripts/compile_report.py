@@ -4,7 +4,7 @@ Report Compilation CLI for AI4MIA Assignment 4.
 
 Compiles both required LaTeX reports to PDF using pdflatex:
 1. report/StudentID_Name_Report.tex -> StudentID_Name_Report.pdf
-2. report/20267105171_shimsoonyong_Report.tex -> 20267105171_shimsoonyong_Report.pdf
+2. report/2026710517_shimsoonyong_Report.tex -> 2026710517_shimsoonyong_Report.pdf
 
 Verifies page counts, ensures clean float/paragraph budgets, and synchronizes deliverables to root.
 """
@@ -26,7 +26,7 @@ def compile_single_report(tex_basename: str, clean: bool = True) -> tuple[Path, 
     pdf_file = report_dir / f"{tex_basename}.pdf"
 
     if not tex_file.exists():
-        # Fallback to StudentID_Name_Report.tex if 20267105171_shimsoonyong_Report.tex doesn't exist yet
+        # Fallback to StudentID_Name_Report.tex if target tex doesn't exist yet
         src_master = report_dir / "StudentID_Name_Report.tex"
         if src_master.exists():
             shutil.copy2(src_master, tex_file)
@@ -96,14 +96,14 @@ def compile_single_report(tex_basename: str, clean: bool = True) -> tuple[Path, 
 def compile_both_reports(clean: bool = True) -> list[tuple[Path, int]]:
     report_dir = REPO_ROOT / "report"
 
-    # Ensure 20267105171_shimsoonyong_Report.tex is synced with StudentID_Name_Report.tex
+    # Ensure 2026710517_shimsoonyong_Report.tex is synced with StudentID_Name_Report.tex
     src_master = report_dir / "StudentID_Name_Report.tex"
-    target_named_tex = report_dir / "20267105171_shimsoonyong_Report.tex"
+    target_named_tex = report_dir / "2026710517_shimsoonyong_Report.tex"
     shutil.copy2(src_master, target_named_tex)
 
     targets = [
         "StudentID_Name_Report",
-        "20267105171_shimsoonyong_Report",
+        "2026710517_shimsoonyong_Report",
     ]
 
     results = []

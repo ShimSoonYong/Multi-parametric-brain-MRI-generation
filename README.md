@@ -8,9 +8,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **AI for Medical Image Analysis (AI4MIA) — Assignment 4**  
-> **Author:** SoonYong Shim (Student ID: `20267105171`, Email: `simsoonyong@yonsei.ac.kr`)  
+> **Author:** ShimSoonYong (Student ID: `2026710517`, Email: `simsoonyong@yonsei.ac.kr`)  
 > **Department:** Department of Artificial Intelligence, Sungkyunkwan University (SKKU)  
-> **Report Deliverables:** [`20267105171_shimsoonyong_Report.pdf`](20267105171_shimsoonyong_Report.pdf) / [`StudentID_Name_Report.pdf`](StudentID_Name_Report.pdf)
+> **Report Deliverables:** [`2026710517_shimsoonyong_Report.pdf`](2026710517_shimsoonyong_Report.pdf) / [`StudentID_Name_Report.pdf`](StudentID_Name_Report.pdf)
 
 ---
 
@@ -82,7 +82,7 @@ assignment4/
 ├── uv.lock                             # Fully resolved dependency lockfile
 ├── README.md                           # Documentation and reproduction guide
 │
-├── 20267105171_shimsoonyong_Report.pdf  # Final PDF report deliverable (StudentID_Name_Report.pdf)
+├── 2026710517_shimsoonyong_Report.pdf   # Final PDF report deliverable (StudentID_Name_Report.pdf)
 ├── StudentID_Name_Report.pdf           # Assignment submission copy
 │
 ├── run_experiments.py                  # Top-level unified execution CLI
@@ -209,4 +209,4 @@ Conforming strictly to course requirements:
 - **Generator Comparison:** Concrete architectural, mathematical, and empirical comparison between `resnet_6blocks` and `unet_128`.
 - **3 Visual Examples:** Complete $[ \text{Real T1w}, \text{Real T2w}, \text{Synthetic T2w}, \text{Synthetic T1w} ]$ visual examples for both generators displayed side-by-side with quantitative annotations.
 - **Quantitative Metrics:** Comprehensive PSNR, SSIM, RMSE, MAE, and region-wise error analysis reported.
-- **Report File Names:** [`20267105171_shimsoonyong_Report.pdf`](20267105171_shimsoonyong_Report.pdf) and [`StudentID_Name_Report.pdf`](StudentID_Name_Report.pdf).
+- **Report File Names:** [`2026710517_shimsoonyong_Report.pdf`](2026710517_shimsoonyong_Report.pdf) and [`StudentID_Name_Report.pdf`](StudentID_Name_Report.pdf).
