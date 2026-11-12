@@ -127,7 +127,7 @@ def main() -> None:
         if exp_summary_file.exists():
             try:
                 loaded_s = json.loads(exp_summary_file.read_text())
-                if "test_overall" in loaded_s and len(loaded_s.get("history", [])) >= (cfg.n_epochs + cfg.n_epochs_decay - 5):
+                if "test_overall" in loaded_s and loaded_s.get("test_overall", {}).get("psnr_T2_mean") is not None:
                     print(f"\n[Experiment {exp_name} already completed] Skipping training.")
                     all_summaries[exp_name] = loaded_s
                     continue
