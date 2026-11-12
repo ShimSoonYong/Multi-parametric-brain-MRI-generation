@@ -5,7 +5,7 @@
 [![Package%20Manager](https://img.shields.io/badge/Package%20Manager-uv-blueviolet.svg)](https://astral.sh/uv)
 [![Framework](https://img.shields.io/badge/Framework-MONAI%201.6.1-green.svg)](https://monai.io/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.15-orange.svg)](https://pytorch.org/)
-[![License](https://img.shields.io/badge/License-Academic-lightgrey.svg)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **AI for Medical Image Analysis (AI4MIA) — Assignment 4**  
 > **Author:** SoonYong Shim (Student ID: `20267105171`, Email: `simsoonyong@yonsei.ac.kr`)  

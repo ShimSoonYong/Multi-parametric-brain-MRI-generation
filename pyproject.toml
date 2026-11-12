@@ -3,6 +3,7 @@ name = "ai4mia-assignment4"
 version = "0.1.0"
 description = "Multi-Parametric Brain MRI Generation Using Unpaired Cycle-Consistent Adversarial Networks and MONAI"
 readme = "README.md"
+license = "MIT"
 authors = [
     { name = "SoonYong Shim", email = "simsoonyong@yonsei.ac.kr" }
 ]
