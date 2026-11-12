@@ -1,7 +1,8 @@
-# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized / cache files
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
 
 # Virtual environments
 .venv/
@@ -13,17 +14,24 @@ AI4MIA_Assignment4_Dataset.zip
 AI4MIA_Assignment4_Dataset/
 data/processed_slices/
 
-# Model weights & checkpoints
+# Model weights & checkpoints (binary files > 2GB)
 checkpoints/
 *.pth
 *.pt
 
-# LaTeX build artifacts
-*.aux
-*.log
-*.out
-*.toc
-*.fdb_latexmk
-*.fls
-*.synctex.gz
+# Scratch data
 *.npz
+!results/**/visual_samples.npz
+
+# LaTeX build artifacts & temporary images
+report/*.aux
+report/*.log
+report/*.out
+report/*.toc
+report/*.synctex.gz
+report/*.fdb_latexmk
+report/*.fls
+report/page*.png
+report/pcheck*.png
+report/page_check*.png
+*.pdf.tmp

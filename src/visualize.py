@@ -208,6 +208,23 @@ def plot_training_curves(summaries: Dict[str, Any], out_path: str | Path) -> Non
     plt.close(fig)
 
 
+def _extract_item_fields(item: Dict[str, Any]):
+    real_t1 = item.get("real_T1", item.get("real_A"))
+    real_t2 = item.get("real_T2", item.get("real_B"))
+    fake_t2 = item.get("fake_T2", item.get("fake_B"))
+    fake_t1 = item.get("fake_T1", item.get("fake_A"))
+    seg = item.get("seg")
+    m = item.get("metrics")
+    if m is None or not isinstance(m, dict):
+        m = {
+            "psnr_T2": float(item.get("psnr_T2", 0.0)),
+            "ssim_T2": float(item.get("ssim_T2", 0.0)),
+            "psnr_T1": float(item.get("psnr_T1", 0.0)),
+            "ssim_T1": float(item.get("ssim_T1", 0.0)),
+        }
+    return real_t1, real_t2, fake_t2, fake_t1, seg, m
+
+
 def plot_three_visual_examples(
     exp_name: str,
     title_prefix: str,
@@ -230,8 +247,8 @@ def plot_three_visual_examples(
 
     for row_idx, key in enumerate(sample_keys):
         item = data[key].item()
-        imgs = [item["real_T1"], item["real_T2"], item["fake_T2"], item["fake_T1"]]
-        m = item["metrics"]
+        r_t1, r_t2, f_t2, f_t1, _, m = _extract_item_fields(item)
+        imgs = [r_t1, r_t2, f_t2, f_t1]
 
         for col_idx, img in enumerate(imgs):
             ax = axes[row_idx, col_idx]
@@ -290,6 +307,127 @@ def plot_three_visual_examples(
     plt.close(fig)
 
 
+def plot_three_visual_examples_comparison(
+    sample_keys: List[str],
+    out_path: str | Path,
+) -> None:
+    """
+    Generate unified direct comparison of resnet_6blocks vs unet_128 for the 3 required visual examples
+    [Real T1w, Real T2w, Synthetic T2w, Synthetic T1w], formatted for full-page width layout.
+    """
+    res_path = Path("results/resnet_6blocks/visual_samples.npz")
+    unet_path = Path("results/unet_128/visual_samples.npz")
+    if not (res_path.exists() and unet_path.exists()):
+        return
+
+    res_data = np.load(res_path, allow_pickle=True)
+    unet_data = np.load(unet_path, allow_pickle=True)
+
+    sample_labels = [
+        "Example 1: BraTS2021_00025 (Slice z=80)",
+        "Example 2: BraTS2021_00026 (Slice z=75)",
+        "Example 3: BraTS2021_00030 (Slice z=80)",
+    ]
+
+    fig = plt.figure(figsize=(16.8, 6.8), dpi=280)
+    gs = fig.add_gridspec(
+        3, 9,
+        width_ratios=[1, 1, 1, 1, 0.12, 1, 1, 1, 1],
+        wspace=0.06,
+        hspace=0.08,
+        left=0.015,
+        right=0.985,
+        top=0.88,
+        bottom=0.03,
+    )
+
+    col_headers = [
+        "Real T1w\n(Input x)",
+        "Real T2w\n(Input y)",
+        "Synthetic T2w\n(G_A: T1->T2)",
+        "Synthetic T1w\n(G_B: T2->T1)",
+    ]
+
+    for r, (key, lbl) in enumerate(zip(sample_keys, sample_labels)):
+        r_item = res_data[key].item()
+        u_item = unet_data[key].item()
+
+        r_t1, r_t2, r_ft2, r_ft1, _, r_m = _extract_item_fields(r_item)
+        u_t1, u_t2, u_ft2, u_ft1, _, u_m = _extract_item_fields(u_item)
+        r_imgs = [r_t1, r_t2, r_ft2, r_ft1]
+        u_imgs = [u_t1, u_t2, u_ft2, u_ft1]
+
+        # ResNet cols 0..3
+        for c in range(4):
+            ax = fig.add_subplot(gs[r, c])
+            ax.imshow(r_imgs[c], cmap="gray", vmin=0, vmax=1)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            if r == 0:
+                ax.set_title(col_headers[c], fontsize=10, fontweight="bold", color="#1e3a8a", pad=6)
+            if c == 0:
+                ax.text(
+                    0.04, 0.94, lbl, transform=ax.transAxes, fontsize=8, fontweight="bold", color="white",
+                    bbox=dict(boxstyle="round,pad=0.25", facecolor="#0f172a", alpha=0.88), va="top"
+                )
+            elif c == 2:
+                ax.text(
+                    0.04, 0.06, f"PSNR: {r_m['psnr_T2']:.2f} dB\nSSIM: {r_m['ssim_T2']:.4f}",
+                    transform=ax.transAxes, fontsize=8, fontweight="bold", color="#fef08a",
+                    bbox=dict(boxstyle="round,pad=0.2", facecolor="#0f172a", alpha=0.88), va="bottom"
+                )
+            elif c == 3:
+                ax.text(
+                    0.04, 0.06, f"PSNR: {r_m['psnr_T1']:.2f} dB\nSSIM: {r_m['ssim_T1']:.4f}",
+                    transform=ax.transAxes, fontsize=8, fontweight="bold", color="#86efac",
+                    bbox=dict(boxstyle="round,pad=0.2", facecolor="#0f172a", alpha=0.88), va="bottom"
+                )
+
+        # Gap col 4: divider line
+        ax_div = fig.add_subplot(gs[r, 4])
+        ax_div.axis("off")
+        ax_div.axvline(0.5, color="#94a3b8", linestyle="--", linewidth=1.2, alpha=0.7)
+
+        # UNet cols 5..8
+        for c in range(4):
+            ax = fig.add_subplot(gs[r, c + 5])
+            ax.imshow(u_imgs[c], cmap="gray", vmin=0, vmax=1)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            if r == 0:
+                ax.set_title(col_headers[c], fontsize=10, fontweight="bold", color="#991b1b", pad=6)
+            if c == 0:
+                ax.text(
+                    0.04, 0.94, lbl, transform=ax.transAxes, fontsize=8, fontweight="bold", color="white",
+                    bbox=dict(boxstyle="round,pad=0.25", facecolor="#0f172a", alpha=0.88), va="top"
+                )
+            elif c == 2:
+                ax.text(
+                    0.04, 0.06, f"PSNR: {u_m['psnr_T2']:.2f} dB\nSSIM: {u_m['ssim_T2']:.4f}",
+                    transform=ax.transAxes, fontsize=8, fontweight="bold", color="#fef08a",
+                    bbox=dict(boxstyle="round,pad=0.2", facecolor="#0f172a", alpha=0.88), va="bottom"
+                )
+            elif c == 3:
+                ax.text(
+                    0.04, 0.06, f"PSNR: {u_m['psnr_T1']:.2f} dB\nSSIM: {u_m['ssim_T1']:.4f}",
+                    transform=ax.transAxes, fontsize=8, fontweight="bold", color="#86efac",
+                    bbox=dict(boxstyle="round,pad=0.2", facecolor="#0f172a", alpha=0.88), va="bottom"
+                )
+
+    fig.text(
+        0.24, 0.965, "(a) Generator 1: resnet_6blocks (6 Residual Blocks at 32x32 Bottleneck)",
+        fontsize=12, fontweight="bold", color="#1e3a8a", ha="center"
+    )
+    fig.text(
+        0.76, 0.965, "(b) Generator 2: unet_128 (7-Stage Recursive U-Net with Skip Connections)",
+        fontsize=12, fontweight="bold", color="#991b1b", ha="center"
+    )
+
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(out_path, bbox_inches="tight")
+    plt.close(fig)
+
+
 def plot_error_heatmaps_comparison(sample_key: str, out_path: str | Path) -> None:
     """
     Compare generators on the same test subject slice along with pixel-wise absolute error
@@ -312,12 +450,9 @@ def plot_error_heatmaps_comparison(sample_key: str, out_path: str | Path) -> Non
 
     for r_idx, (m_key, m_label) in enumerate(models):
         item = loaded[m_key]
-        r_t1, r_t2 = item["real_T1"], item["real_T2"]
-        f_t2, f_t1 = item["fake_T2"], item["fake_T1"]
-        seg = item["seg"]
+        r_t1, r_t2, f_t2, f_t1, seg, m = _extract_item_fields(item)
         err_t2 = np.abs(r_t2 - f_t2)
         err_t1 = np.abs(r_t1 - f_t1)
-        m = item["metrics"]
 
         axes[r_idx, 0].imshow(r_t1 if r_idx != 1 else r_t2, cmap="gray", vmin=0, vmax=1)
         if (seg > 0).sum() > 0:
@@ -335,8 +470,11 @@ def plot_error_heatmaps_comparison(sample_key: str, out_path: str | Path) -> Non
         )
         axes[r_idx, 1].axis("off")
 
+        rmse_t2 = float(m.get("rmse_T2", np.sqrt(np.mean(err_t2**2))))
+        rmse_t1 = float(m.get("rmse_T1", np.sqrt(np.mean(err_t1**2))))
+
         im_e2 = axes[r_idx, 2].imshow(err_t2, cmap="magma", vmin=0, vmax=0.45)
-        axes[r_idx, 2].set_title(f"|Real T2w - Syn T2w| Error\nRMSE={m['rmse_T2']:.4f}", fontsize=9.5, fontweight="bold")
+        axes[r_idx, 2].set_title(f"|Real T2w - Syn T2w| Error\nRMSE={rmse_t2:.4f}", fontsize=9.5, fontweight="bold")
         axes[r_idx, 2].axis("off")
         plt.colorbar(im_e2, ax=axes[r_idx, 2], fraction=0.046, pad=0.04)
 
@@ -347,7 +485,7 @@ def plot_error_heatmaps_comparison(sample_key: str, out_path: str | Path) -> Non
         axes[r_idx, 3].axis("off")
 
         im_e1 = axes[r_idx, 4].imshow(err_t1, cmap="magma", vmin=0, vmax=0.45)
-        axes[r_idx, 4].set_title(f"|Real T1w - Syn T1w| Error\nRMSE={m['rmse_T1']:.4f}", fontsize=9.5, fontweight="bold")
+        axes[r_idx, 4].set_title(f"|Real T1w - Syn T1w| Error\nRMSE={rmse_t1:.4f}", fontsize=9.5, fontweight="bold")
         axes[r_idx, 4].axis("off")
         plt.colorbar(im_e1, ax=axes[r_idx, 4], fraction=0.046, pad=0.04)
 

@@ -1,10 +1,10 @@
 [project]
 name = "ai4mia-assignment4"
 version = "0.1.0"
-description = "Add your description here"
+description = "Multi-Parametric Brain MRI Generation Using Unpaired Cycle-Consistent Adversarial Networks and MONAI"
 readme = "README.md"
 authors = [
-    { name = "ShimSoonYong", email = "simsoonyong@yonsei.ac.kr" }
+    { name = "SoonYong Shim", email = "simsoonyong@yonsei.ac.kr" }
 ]
 requires-python = ">=3.12"
 dependencies = [
@@ -21,9 +21,6 @@ dependencies = [
     "torchvision>=0.29.2",
     "tqdm>=4.70.1",
 ]
-
-[project.scripts]
-ai4mia-assignment4 = "ai4mia_assignment4:main"
 
 [build-system]
 requires = ["uv_build>=0.13.6,<0.14.0"]
