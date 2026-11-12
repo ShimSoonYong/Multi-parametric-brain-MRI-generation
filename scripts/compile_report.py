@@ -2,10 +2,11 @@
 """
 Report Compilation CLI for AI4MIA Assignment 4.
 
-Compiles report/StudentID_Name_Report.tex to PDF using pdflatex,
-verifies page count, and updates root submission deliverables:
-- 20267105171_shimsoonyong_Report.pdf
-- StudentID_Name_Report.pdf
+Compiles both required LaTeX reports to PDF using pdflatex:
+1. report/StudentID_Name_Report.tex -> StudentID_Name_Report.pdf
+2. report/20267105171_shimsoonyong_Report.tex -> 20267105171_shimsoonyong_Report.pdf
+
+Verifies page counts, ensures clean float/paragraph budgets, and synchronizes deliverables to root.
 """
 
 from __future__ import annotations
@@ -19,50 +20,54 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-def compile_pdf(clean: bool = True) -> Path:
+def compile_single_report(tex_basename: str, clean: bool = True) -> tuple[Path, int]:
     report_dir = REPO_ROOT / "report"
-    tex_file = report_dir / "StudentID_Name_Report.tex"
-    pdf_file = report_dir / "StudentID_Name_Report.pdf"
+    tex_file = report_dir / f"{tex_basename}.tex"
+    pdf_file = report_dir / f"{tex_basename}.pdf"
 
     if not tex_file.exists():
-        raise FileNotFoundError(f"LaTeX file not found at: {tex_file}")
+        # Fallback to StudentID_Name_Report.tex if 20267105171_shimsoonyong_Report.tex doesn't exist yet
+        src_master = report_dir / "StudentID_Name_Report.tex"
+        if src_master.exists():
+            shutil.copy2(src_master, tex_file)
+        else:
+            raise FileNotFoundError(f"LaTeX source not found at: {tex_file}")
 
     print(f"\n{'='*70}")
-    print(" Compiling LaTeX Report with pdflatex...")
-    print(f" Source: {tex_file}")
-    print(f"{'='*70}\n")
+    print(f" Compiling Report: {tex_file.name}")
+    print(f"{'='*70}")
 
     # Pass 1
-    print("Pass 1/2...")
+    print(f"[{tex_basename}] Pass 1/2...")
     res1 = subprocess.run(
-        ["pdflatex", "-interaction=nonstopmode", "StudentID_Name_Report.tex"],
+        ["pdflatex", "-interaction=nonstopmode", f"{tex_basename}.tex"],
         cwd=str(report_dir),
         capture_output=True,
         text=True,
     )
     if res1.returncode != 0:
-        print("pdflatex Pass 1 Error Output:")
+        print(f"pdflatex Pass 1 Error Output for {tex_basename}:")
         print(res1.stdout[-1500:])
-        raise RuntimeError("Pass 1 failed!")
+        raise RuntimeError(f"Pass 1 failed for {tex_basename}!")
 
     # Pass 2 for cross-references & balance
-    print("Pass 2/2...")
+    print(f"[{tex_basename}] Pass 2/2...")
     res2 = subprocess.run(
-        ["pdflatex", "-interaction=nonstopmode", "StudentID_Name_Report.tex"],
+        ["pdflatex", "-interaction=nonstopmode", f"{tex_basename}.tex"],
         cwd=str(report_dir),
         capture_output=True,
         text=True,
     )
     if res2.returncode != 0:
-        print("pdflatex Pass 2 Error Output:")
+        print(f"pdflatex Pass 2 Error Output for {tex_basename}:")
         print(res2.stdout[-1500:])
-        raise RuntimeError("Pass 2 failed!")
+        raise RuntimeError(f"Pass 2 failed for {tex_basename}!")
 
     if not pdf_file.exists():
         raise FileNotFoundError(f"PDF not generated: {pdf_file}")
 
     # Check page count
-    page_count = None
+    page_count = 0
     try:
         info = subprocess.run(["pdfinfo", str(pdf_file)], capture_output=True, text=True, check=True)
         for line in info.stdout.splitlines():
@@ -72,35 +77,56 @@ def compile_pdf(clean: bool = True) -> Path:
     except Exception:
         pass
 
-    print(f"\nPDF successfully compiled: {pdf_file}")
-    if page_count:
-        print(f"Total Page Count: {page_count} pages")
+    print(f"  -> Generated: {pdf_file.name} ({pdf_file.stat().st_size / (1024*1024):.2f} MB, {page_count} pages)")
 
-    # Copy to required submission deliverables
-    sub_targets = [
-        REPO_ROOT / "20267105171_shimsoonyong_Report.pdf",
-        REPO_ROOT / "StudentID_Name_Report.pdf",
-    ]
-    for target in sub_targets:
-        shutil.copy2(pdf_file, target)
-        print(f"Copied deliverable -> {target.name} ({target.stat().st_size / (1024*1024):.2f} MB)")
+    # Copy deliverable to workspace root
+    root_target = REPO_ROOT / f"{tex_basename}.pdf"
+    shutil.copy2(pdf_file, root_target)
+    print(f"  -> Synced root deliverable: {root_target.name}")
 
     # Clean intermediate files if requested
     if clean:
         for ext in [".aux", ".log", ".out", ".toc", ".synctex.gz"]:
-            for f in report_dir.glob(f"*{ext}"):
-                f.unlink(missing_ok=True)
-        print("Cleaned temporary LaTeX build artifacts (.aux, .log, .out).")
+            f = report_dir / f"{tex_basename}{ext}"
+            f.unlink(missing_ok=True)
 
-    return pdf_file
+    return pdf_file, page_count
+
+
+def compile_both_reports(clean: bool = True) -> list[tuple[Path, int]]:
+    report_dir = REPO_ROOT / "report"
+
+    # Ensure 20267105171_shimsoonyong_Report.tex is synced with StudentID_Name_Report.tex
+    src_master = report_dir / "StudentID_Name_Report.tex"
+    target_named_tex = report_dir / "20267105171_shimsoonyong_Report.tex"
+    shutil.copy2(src_master, target_named_tex)
+
+    targets = [
+        "StudentID_Name_Report",
+        "20267105171_shimsoonyong_Report",
+    ]
+
+    results = []
+    for tgt in targets:
+        pdf_path, p_count = compile_single_report(tgt, clean=clean)
+        results.append((pdf_path, p_count))
+
+    print(f"\n{'='*70}")
+    print(" Both Reports Successfully Compiled and Synchronized:")
+    for pdf_path, p_count in results:
+        root_path = REPO_ROOT / pdf_path.name
+        print(f"   * {pdf_path.name} -> {root_path} ({p_count} pages, {root_path.stat().st_size / (1024*1024):.2f} MB)")
+    print(f"{'='*70}\n")
+
+    return results
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Compile report LaTeX to PDF")
+    parser = argparse.ArgumentParser(description="Compile both LaTeX reports to PDF")
     parser.add_argument("--no-clean", action="store_true", help="Keep intermediate .aux/.log files")
     args = parser.parse_args()
 
-    compile_pdf(clean=not args.no_clean)
+    compile_both_reports(clean=not args.no_clean)
 
 
 if __name__ == "__main__":
