@@ -49,7 +49,7 @@ def render_code_snippet(
     title: str,
     out_path: str | Path,
 ) -> None:
-    """Render a syntax-highlighted screenshot of a source code region with a window header."""
+    """Render a syntax-highlighted screenshot of a source code region with a clean modern window header."""
     lines = Path(file_path).read_text(encoding="utf-8").splitlines()
     selected = "\n".join(lines[start_line - 1 : end_line])
 
@@ -58,32 +58,32 @@ def render_code_snippet(
         line_numbers=True,
         line_number_start=start_line,
         font_name="DejaVu Sans Mono",
-        font_size=15,
-        line_pad=4,
-        image_pad=14,
-        line_number_bg="#eef2f7",
-        line_number_fg="#4a5568",
+        font_size=13,
+        line_pad=2,
+        image_pad=10,
+        line_number_bg="#f1f5f9",
+        line_number_fg="#64748b",
     )
     raw_bytes = highlight(selected, PythonLexer(), formatter)
     code_img = Image.open(BytesIO(raw_bytes)).convert("RGB")
 
-    header_h = 38
-    border = 2
+    header_h = 28
+    border = 1
     w, h = code_img.size
-    canvas = Image.new("RGB", (w + 2 * border, h + header_h + 2 * border), "#1e293b")
+    canvas = Image.new("RGB", (w + 2 * border, h + header_h + 2 * border), "#0f172a")
     draw = ImageDraw.Draw(canvas)
 
     for idx, col in enumerate(["#ef4444", "#f59e0b", "#10b981"]):
-        cx = 18 + idx * 20
+        cx = 14 + idx * 16
         cy = header_h // 2 + border
-        draw.ellipse((cx - 6, cy - 6, cx + 6, cy + 6), fill=col)
+        draw.ellipse((cx - 4.5, cy - 4.5, cx + 4.5, cy + 4.5), fill=col)
 
     try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 11)
     except Exception:
         font = ImageFont.load_default()
 
-    draw.text((84, 11), title, fill="#f8fafc", font=font)
+    draw.text((68, 7), title, fill="#f8fafc", font=font)
     canvas.paste(code_img, (border, header_h + border))
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     canvas.save(out_path, dpi=(300, 300))

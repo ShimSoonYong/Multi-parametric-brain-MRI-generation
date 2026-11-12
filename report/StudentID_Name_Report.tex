@@ -37,7 +37,7 @@
 \maketitle
 
 \begin{abstract}
-Multi-parametric brain magnetic resonance imaging (mpMRI) provides complementary soft-tissue contrasts vital for neuro-oncology diagnosis, tumor margin delineation, and radiotherapy treatment planning. However, scanning time constraints, motion artifacts, and renal risks associated with gadolinium-based contrast agents often preclude acquiring all sequences. In this project, we implement an end-to-end unpaired deep learning framework translating post-contrast T1-weighted (\textbf{T1ce}) and T2-weighted (\textbf{T2}) brain scans using the BraTS 2021 Task 1 benchmark. Conforming strictly to course requirements, we use the Medical Open Network for AI (\textbf{MONAI}) for medical data handling and loss formulations, train models on unpaired slice permutations, and rigorously evaluate on the designated held-out 4-subject test cohort (00025, 00026, 00028, 00030). We compare the two required generator architectures (\texttt{resnet\_6blocks} and \texttt{unet\_128}), investigate MONAI-native Residual U-Net architectures (\texttt{monai\_resunet}) with structural cycle regularization (\texttt{SSIMLoss}), and perform ablation studies exposing preprocessing-induced error sources (outlier-robust percentile clipping vs. naive min-max scaling). Quantitative evaluation using PSNR, SSIM, RMSE, MAE, and tissue sub-region decomposition across 360 paired test slices demonstrates the distinct trade-offs between continuous bottleneck representation and multi-scale skip connections.
+Cross-modality brain magnetic resonance imaging (MRI) synthesis enables multi-contrast diagnostic workflows without subjecting patients to extended scanner acquisition durations or repeated gadolinium contrast agent injections. In this project, we implement an end-to-end unpaired image-to-image translation framework translating post-contrast T1-weighted (\textbf{T1ce}) and T2-weighted (\textbf{T2}) brain scans using the BraTS 2021 Task 1 benchmark. Conforming strictly to course requirements, we use the Medical Open Network for AI (\textbf{MONAI}) for medical data handling and loss formulations, train models on unpaired slice permutations, and rigorously evaluate on the designated held-out 4-subject test cohort (00025, 00026, 00028, 00030). We compare the two required generator architectures (\texttt{resnet\_6blocks} and \texttt{unet\_128}), investigate MONAI-native Residual U-Net architectures (\texttt{monai\_resunet}) with structural cycle regularization (\texttt{SSIMLoss}), and perform ablation studies exposing preprocessing-induced error sources (outlier-robust percentile clipping vs. naive min-max scaling). Quantitative evaluation using PSNR, SSIM, RMSE, MAE, and tissue sub-region decomposition across 360 paired test slices demonstrates the distinct trade-offs between continuous bottleneck representation and multi-scale skip connections.
 \end{abstract}
 
 \section{Introduction and Problem Formulation}
@@ -55,73 +55,84 @@ To preserve structural contrast identity and prevent spurious domain drift, an i
 
 In our training scheme, slices from 15 subjects are independently permuted at every epoch to ensure strictly unpaired training data, validated on 3 subjects, and evaluated on the 4 fixed test subjects.
 
-\section{Implementation Details and Code Structure}
+\section{Core Implementation and Code Explanation}
 
-\subsection{MONAI Preprocessing and Data Pipeline}
-Raw BraTS 2021 NIfTI volumes ($240 \times 240 \times 155$ voxels) exhibit wide intensity ranges and hyper-intense gadolinium tails exceeding 10,000 intensity units. Naive min-max normalization compresses healthy brain parenchyma into a narrow band $[0.0, 0.2]$ (Figure~\ref{fig:preprocessing}), starving discriminator gradients. We formulate an outlier-robust percentile normalization:
-\begin{equation}
-x_{\text{norm}} = 2 \cdot \frac{\text{clip}(x, 0, P_{99.5}) - 0}{P_{99.5} - 0} - 1.0 \in [-1, 1]
-\end{equation}
-Using MONAI's \texttt{LoadImaged}, \texttt{EnsureChannelFirstd}, \texttt{CenterSpatialCropd} ($192 \times 192$), and \texttt{Resized} to $128 \times 128$, axial slices are extracted across $z \in [30, 119]$ (90 slices/subject).
+\subsection{Data Handling and Unpaired Permutation}
+\begin{itemize}
+    \item \textbf{Percentile Scaling:} To mitigate hyper-intense gadolinium contrast spikes ($>10,000$) that crush soft tissue dynamic range under naive min-max scaling, intensities are clipped at $P_{99.5}$ and scaled to $[-1, 1]$:
+    \begin{equation}
+    x_{\text{norm}} = 2 \cdot \frac{\text{clip}(x, 0, P_{99.5}) - 0}{P_{99.5} - 0} - 1.0
+    \end{equation}
+    \item \textbf{MONAI Transforms:} Slices are center-cropped to $192 \times 192$ and bilinearly interpolated to $128 \times 128$ via \texttt{CenterSpatialCropd} and \texttt{Resized}.
+    \item \textbf{Code Snippet (Figure~\ref{fig:code_data}):} In \texttt{src/dataset.py}, \texttt{UnpairedBraTSDataset} maintains separate slice pools for T1ce and T2. The method \texttt{shuffle\_domains()} independently permutes index arrays \texttt{perm\_A} and \texttt{perm\_B} at each epoch, strictly decoupling anatomical correspondence. MONAI's \texttt{RandFlipd} provides horizontal reflection augmentation.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/code_dataset.png}
+    \caption{\textbf{Data Handling Code (\texttt{src/dataset.py})}: Implementation of \texttt{UnpairedBraTSDataset} with domain permutation and MONAI augmentation.}
+    \label{fig:code_data}
+\end{figure}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\linewidth]{figures/fig_preprocessing.png}
-    \caption{\textbf{Intensity Normalization Analysis.} Left: Raw intensity histograms (log scale) showing hyper-intense gadolinium tails. Middle: Naive min-max scaling crushing parenchymal contrast. Right: MONAI 99.5th-percentile scaling restoring full dynamic range.}
+    \caption{\textbf{Preprocessing Analysis}: Raw intensity histograms (left) vs. naive min-max scaling (middle) vs. MONAI 99.5\% percentile normalization (right).}
     \label{fig:preprocessing}
 \end{figure}
 
-\subsection{Explanation of Core Code Components}
-Figure~\ref{fig:code_captures} presents captured code regions illustrating our pipeline:
-\begin{enumerate}
-    \item \textbf{Unpaired Dataset (\texttt{src/dataset.py}, Fig.~\ref{fig:code_captures}a):} \texttt{UnpairedBraTSDataset} independently shuffles Domain A (T1ce) and Domain B (T2) indices at every epoch via \texttt{shuffle\_domains()}, ensuring that training pairs $(x_A, y_B)$ originate from different subjects and anatomical slice depths. MONAI's \texttt{RandFlipd} applies spatial data augmentation.
-    \item \textbf{ResNet Generator (\texttt{src/networks.py}, Fig.~\ref{fig:code_captures}b):} \texttt{ResnetGenerator} implements the standard 6-block architecture: 2 strided convolutions ($128 \to 64 \to 32$), 6 residual blocks with Reflection Padding and Instance Normalization operating on $32 \times 32$ feature maps, and 2 transposed convolutions upsampling back to $128 \times 128$ with Tanh activation (7.83M parameters).
-    \item \textbf{CycleGAN Training Scheme (\texttt{src/cyclegan.py}, Fig.~\ref{fig:code_captures}c):} Encapsulates forward cycling ($A \to B \to A$ and $B \to A \to B$), LSGAN loss calculation, $L_1$ cycle loss ($\lambda=10.0$), identity loss ($\lambda_{\text{idt}}=5.0$), and 50-image historical replay buffers (\texttt{ImagePool}) for $D_A$ and $D_B$.
-    \item \textbf{Quantitative Metrics (\texttt{src/metrics.py}, Fig.~\ref{fig:code_captures}d):} Implements MONAI \texttt{PSNRMetric}, \texttt{SSIMMetric}, \texttt{RMSEMetric}, and \texttt{MAEMetric}, with closed-form mathematical verifications.
-\end{enumerate}
+\subsection{Generator Architectures: ResNet-6 vs. U-Net-128}
+\begin{itemize}
+    \item \textbf{\texttt{resnet\_6blocks} (Figure~\ref{fig:code_generators}a):} Employs 2 stride-2 downsampling convs ($128 \to 64 \to 32$ with 64 and 128 channels), followed by 6 residual blocks with ReflectionPad2d and InstanceNorm operating at $32 \times 32$ resolution (256 channels), and 2 transposed convs upsampling back to $128 \times 128$ (7.83M parameters).
+    \item \textbf{\texttt{unet\_128} (Figure~\ref{fig:code_generators}b):} Built recursively with 7 downsampling stages ($128 \to 64 \to 32 \to 16 \to 8 \to 4 \to 2 \to 1$), where mirrored encoder feature maps are concatenated directly into decoder layers via skip connections (41.82M parameters).
+\end{itemize}
 
 \begin{figure*}[t]
     \centering
-    \begin{subfigure}[b]{0.49\linewidth}
-        \includegraphics[width=\linewidth]{figures/code_dataset.png}
-        \caption{\texttt{src/dataset.py}: MONAI Dataset \& Domain Shuffling}
-    \end{subfigure}
-    \begin{subfigure}[b]{0.49\linewidth}
+    \begin{subfigure}[b]{0.485\linewidth}
         \includegraphics[width=\linewidth]{figures/code_resnet.png}
-        \caption{\texttt{src/networks.py}: ResNet-6 Generator Architecture}
+        \caption{\texttt{src/networks.py}: \texttt{ResnetGenerator} (6 residual blocks at $32\times 32$)}
     \end{subfigure}
-    \vskip 0.5em
-    \begin{subfigure}[b]{0.49\linewidth}
-        \includegraphics[width=\linewidth]{figures/code_training.png}
-        \caption{\texttt{src/cyclegan.py}: Multi-Loss Training Scheme}
+    \hfill
+    \begin{subfigure}[b]{0.485\linewidth}
+        \includegraphics[width=\linewidth]{figures/code_unet.png}
+        \caption{\texttt{src/networks.py}: \texttt{UnetGenerator} (7-level recursive skip connections)}
     \end{subfigure}
-    \begin{subfigure}[b]{0.49\linewidth}
-        \includegraphics[width=\linewidth]{figures/code_metrics.png}
-        \caption{\texttt{src/metrics.py}: MONAI PSNR, SSIM, and Error Metrics}
-    \end{subfigure}
-    \caption{\textbf{Captured Source Code Implementation} demonstrating our MONAI data pipeline, neural network architectures, multi-objective optimization engine, and evaluation metric implementations.}
-    \label{fig:code_captures}
+    \caption{\textbf{Concrete Generator Architectures}: Comparison of \texttt{resnet\_6blocks} bottleneck formulation against \texttt{unet\_128} recursive skip connections.}
+    \label{fig:code_generators}
 \end{figure*}
 
-\subsection{Evaluation Metrics Formulation}
-Following lecture notes (Week 10 Slides 3--5), metrics are computed on rescaled $[0, 1]$ intensity maps:
-\begin{align}
-\text{PSNR} &= 10 \cdot \log_{10}\left(\frac{\text{MAX}_I^2}{\text{MSE}}\right) = -10 \log_{10}(\text{MSE}) \\
-\text{SSIM}(x, y) &= \frac{(2\mu_x\mu_y + C_1)(2\sigma_{xy} + C_2)}{(\mu_x^2 + \mu_y^2 + C_1)(\sigma_x^2 + \sigma_y^2 + C_2)}
-\end{align}
-where $C_1=(0.01)^2, C_2=(0.03)^2$, and Gaussian window size is 11. Additionally, Root Mean Squared Error (RMSE) and Mean Absolute Error (MAE) are reported across the whole brain and decomposed into normal parenchyma, peritumoral edema, and enhancing tumor core.
-
-\section{Experimental Results and Generator Comparison}
-
-\subsection{Comparison of \texttt{resnet\_6blocks} vs. \texttt{unet\_128}}
-The course assignment specifically mandates comparing two generator paradigms: \texttt{resnet\_6blocks} and \texttt{unet\_128}.
+\subsection{CycleGAN Training Scheme}
+\begin{itemize}
+    \item \textbf{Forward Cycling:} As captured in Figure~\ref{fig:code_train}, \texttt{optimize\_step} performs dual translations: synthetic T2 $\hat{y} = G_A(x)$, reconstruction $\hat{x} = G_B(\hat{y})$; synthetic T1 $\hat{x}_B = G_B(y)$, reconstruction $\hat{y}_B = G_A(\hat{x}_B)$.
+    \item \textbf{Loss Formulation:} Generators minimize LSGAN loss plus weighted $L_1$ cycle consistency ($\lambda_{\text{cyc}}=10.0$), identity loss ($\lambda_{\text{idt}}=5.0$), and optional structural cycle loss ($\lambda_{\text{ssim}}\mathcal{L}_{\text{SSIM}}$). Discriminators are updated using a 50-image history buffer (\texttt{ImagePool}).
+\end{itemize}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=\linewidth]{figures/fig_training_curves.png}
-    \caption{\textbf{Training Loss and Validation Dynamics.} Comparison of Cycle $L_1$ loss, LSGAN generator loss, and validation PSNR/SSIM across epochs.}
-    \label{fig:training_curves}
+    \includegraphics[width=\linewidth]{figures/code_training.png}
+    \caption{\textbf{Training Scheme Code (\texttt{src/cyclegan.py})}: Forward cycling, LSGAN, cycle $L_1$, and identity loss optimization in \texttt{optimize\_step}.}
+    \label{fig:code_train}
 \end{figure}
+
+\subsection{Evaluation Metric Implementations}
+Following lecture notes (Week 10 Slides 3--5), metrics are evaluated over normalized unit range $[0, 1]$:
+\begin{itemize}
+    \item \textbf{PSNR Implementation (Figure~\ref{fig:code_eval}):} \texttt{compute\_psnr\_explicit} computes batch-wise MSE and evaluates $10 \log_{10}(1/\text{MSE})$ with clamp safeguards.
+    \item \textbf{SSIM Implementation (Figure~\ref{fig:code_eval}):} \texttt{compute\_ssim\_explicit} computes 2D Gaussian-filtered local statistics ($\mu, \sigma^2, \sigma_{xy}$) using an $11 \times 11$ kernel ($\sigma=1.5, C_1=10^{-4}, C_2=9\times 10^{-4}$) matching MONAI's \texttt{SSIMMetric}.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/code_metrics.png}
+    \caption{\textbf{Metrics Implementation Code (\texttt{src/metrics.py})}: Closed-form PSNR and Gaussian-windowed 2D SSIM implementations.}
+    \label{fig:code_eval}
+\end{figure}
+
+\section{Experimental Results and Generator Comparison}
+
+\subsection{Quantitative Performance: ResNet-6 vs. U-Net-128}
+Table~\ref{tab:quantitative} summarizes held-out test performance across all 360 axial slices from test subjects \texttt{00025}, \texttt{00026}, \texttt{00028}, and \texttt{00030}.
 
 \begin{table}[H]
 \centering
@@ -143,28 +154,33 @@ The course assignment specifically mandates comparing two generator paradigms: \
 }
 \end{table}
 
-As shown in Table~\ref{tab:quantitative}, \texttt{resnet\_6blocks} substantially outperforms \texttt{unet\_128}:
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_training_curves.png}
+    \caption{\textbf{Training Dynamics}: Cycle loss, LSGAN loss, and validation PSNR/SSIM across epochs.}
+    \label{fig:curves}
+\end{figure}
+
 \begin{itemize}
-    \item \textbf{T1ce $\to$ T2w Translation:} \texttt{resnet\_6blocks} achieves $\mathbf{20.81\text{ dB}}$ PSNR and $\mathbf{0.692}$ SSIM, outperforming \texttt{unet\_128} ($18.84\text{ dB}$, $0.611$ SSIM) by $\mathbf{+1.97\text{ dB}}$ and $\mathbf{+0.081}$ SSIM.
-    \item \textbf{T2w $\to$ T1ce Translation:} \texttt{resnet\_6blocks} reaches $\mathbf{23.23\text{ dB}}$ PSNR and $\mathbf{0.746}$ SSIM vs. $\mathbf{21.92\text{ dB}}$ and $\mathbf{0.654}$ SSIM for \texttt{unet\_128} ($\mathbf{+1.31\text{ dB}}$, $\mathbf{+0.092}$ SSIM).
+    \item \textbf{T1ce $\to$ T2w Translation:} \texttt{resnet\_6blocks} achieves $\mathbf{20.81\text{ dB}}$ PSNR and $\mathbf{0.692}$ SSIM, outperforming \texttt{unet\_128} ($18.84\text{ dB}$ PSNR, $0.611$ SSIM) by $\mathbf{+1.97\text{ dB}}$ and $\mathbf{+0.081}$ SSIM.
+    \item \textbf{T2w $\to$ T1ce Translation:} \texttt{resnet\_6blocks} achieves $\mathbf{23.23\text{ dB}}$ PSNR and $\mathbf{0.746}$ SSIM vs. $\mathbf{21.92\text{ dB}}$ and $\mathbf{0.654}$ SSIM for \texttt{unet\_128} ($\mathbf{+1.31\text{ dB}}$, $\mathbf{+0.092}$ SSIM).
+    \item \textbf{Architectural Analysis:} In unpaired translation, U-Net's direct low-level skip connections leak source modality intensity signatures directly into the output. Furthermore, downsampling to $1 \times 1$ destroys global context for large ventricles. ResNet maintains continuous spatial representation at $32 \times 32$ without bottleneck collapse, yielding superior structural fidelity.
 \end{itemize}
 
-\textbf{Architectural Analysis:} In standard \texttt{unet\_128}, low-level encoder skip connections directly concatenate early feature maps onto decoder layers. While effective in paired supervised translation (Pix2Pix), in unpaired CycleGAN training this pathway tends to leak source contrast patterns directly into the output. Furthermore, downsampling to $1 \times 1$ at the 7th bottleneck layer compresses global spatial context excessively. In contrast, \texttt{resnet\_6blocks} processes features at a constant $32 \times 32$ resolution via 6 residual blocks, preventing spatial bottleneck starvation and providing superior texture coherence.
-
 \subsection{Visual Examples of Outputs (Slide 23 Requirement)}
-Figures~\ref{fig:vis_resnet6} and \ref{fig:vis_unet128} depict the 3 required visual examples ($[\text{Real T1w}, \text{Real T2w}, \text{Synthetic T2w}, \text{Synthetic T1w}]$) across diverse axial levels from the test subjects.
+Figures~\ref{fig:vis_resnet6} and \ref{fig:vis_unet128} present the 3 required visual examples ($[\text{Real T1w}, \text{Real T2w}, \text{Synthetic T2w}, \text{Synthetic T1w}]$) across diverse axial levels from the test cohort.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\linewidth]{figures/fig_visual_3examples_resnet6.png}
-    \caption{\textbf{ResNet-6 Generator: 3 Required Visual Examples.} Each row demonstrates $[\text{Real T1w}, \text{Real T2w}, \text{Synthetic T2w}, \text{Synthetic T1w}]$ with quantitative PSNR and SSIM scores annotated.}
+    \caption{\textbf{ResNet-6 Generator: 3 Required Visual Examples.} Each row demonstrates $[\text{Real T1w}, \text{Real T2w}, \text{Synthetic T2w}, \text{Synthetic T1w}]$ with test metrics annotated.}
     \label{fig:vis_resnet6}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\linewidth]{figures/fig_visual_3examples_unet128.png}
-    \caption{\textbf{U-Net-128 Generator: 3 Required Visual Examples.} Demonstrates sharper high-frequency edges but increased background noise and localized contrast leakage.}
+    \caption{\textbf{U-Net-128 Generator: 3 Required Visual Examples.} Exhibiting high-frequency texture noise and localized contrast leakage.}
     \label{fig:vis_unet128}
 \end{figure}
 
@@ -176,21 +192,19 @@ Figures~\ref{fig:vis_resnet6} and \ref{fig:vis_unet128} depict the 3 required vi
 \end{figure}
 
 \section{Analysis on Sources of Error}
-In accordance with assignment grading criteria, we analyze three primary sources of error:
 \begin{enumerate}
-    \item \textbf{Modality-Asymmetric Information Discrepancy (Biological Ill-Posedness):} In glioblastoma patients, T1ce contrast enhancement directly reflects intravenous gadolinium chelate distribution across a disrupted blood-brain barrier. T2-weighted MRI reflects proton relaxation properties and contains no contrast agent. Synthesizing an enhancing tumor rim from T2 alone is fundamentally an ill-posed inverse problem. As demonstrated by the tissue decomposition in Figure~\ref{fig:quant_bars}(c), MAE in the enhancing tumor core is approximately $\mathbf{2.5\times}$ higher than in healthy parenchyma.
-    \item \textbf{U-Net Skip-Connection Contrast Leakage:} The direct pixel-to-pixel skip pathways in \texttt{unet\_128} permit high-frequency source modality intensity signatures to bypass deep semantic translation. In $T_1 \to T_2$ synthesis, residual T1ce hyper-intensity artifacts appear around ventricular boundaries.
-    \item \textbf{Preprocessing Outlier Sensitivity:} Under naive min-max scaling (\texttt{resnet\_6blocks\_minmax}), hyper-intense gadolinium voxels ($>10,000$) compress healthy parenchyma into $[0.0, 0.2]$. While global MSE appears small (inflating naive PSNR), perceptual SSIM plummets from $0.692$ to $0.584$ due to crushed tissue contrast.
+    \item \textbf{Biological Modality Asymmetry (Ill-Posed Inverse Problem):} T1ce contrast enhancement stems from exogenous intravenous gadolinium distribution across disrupted blood-brain barriers. T2 MRI reflects proton relaxation properties and contains no contrast agent. Predicting an enhancing tumor rim from T2 alone is physically ill-posed. As verified in Figure~\ref{fig:quant_bars}(c), MAE in the enhancing core is $\approx \mathbf{2.5\times}$ higher than in normal parenchyma.
+    \item \textbf{Skip-Connection Leakage:} In \texttt{unet\_128}, low-level skip connections preserve fine edge details but bypass deep semantic transformation, leaking T1ce high-intensity boundaries into synthetic T2 outputs.
+    \item \textbf{Intensity Normalization Sensitivity:} Under naive min-max scaling (\texttt{resnet\_6blocks\_minmax}), hyper-intense voxels ($>10,000$) compress parenchyma into $[0.0, 0.2]$, degrading SSIM to $0.584$ due to loss of tissue contrast.
 \end{enumerate}
 
 \section{Varying Technique Attempts}
-To explore alternative architectural formulations beyond the default baselines:
 \begin{itemize}
-    \item \textbf{MONAI Native ResUNet (\texttt{monai\_resunet}):} We constructed a generator via \texttt{monai.networks.nets.UNet} with 4 resolution stages, 2 residual units per stage, and InstanceNorm. While computationally efficient ($16.5\text{ s/epoch}$), its multi-scale skip connections exhibited convergence dynamics similar to U-Net-128.
-    \item \textbf{Structural SSIM Cycle Regularization (\texttt{monai\_resunet\_ssim}):} Adding \texttt{monai.losses.SSIMLoss} ($\lambda_{\text{ssim}}=2.0$) penalized geometric distortion during cyclic reconstruction, stabilizing ventricle border geometry.
+    \item \textbf{MONAI ResUNet (\texttt{monai\_resunet}):} We evaluated \texttt{monai.networks.nets.UNet} with 4 stages, 2 residual units per stage, and InstanceNorm. While faster ($16.5\text{ s/epoch}$), its multi-scale skip connections exhibited convergence dynamics similar to U-Net-128.
+    \item \textbf{Structural SSIM Cycle Regularization (\texttt{monai\_resunet\_ssim}):} Adding \texttt{monai.losses.SSIMLoss} ($\lambda_{\text{ssim}}=2.0$) stabilized geometric ventricular boundaries during cyclic reconstruction.
 \end{itemize}
 
 \section{Conclusion}
-This study implemented an unpaired multi-parametric brain MRI translation framework combining PyTorch CycleGAN with the MONAI medical imaging ecosystem. Strict subject-level splitting, unpaired domain permutation, and evaluation across 360 held-out test slices confirmed that \texttt{resnet\_6blocks} achieves superior cross-modality synthesis ($20.81\text{ dB}$ PSNR, $0.692$ SSIM) compared to \texttt{unet\_128} ($18.84\text{ dB}$ PSNR, $0.611$ SSIM). Comprehensive error source decomposition revealed that gadolinium contrast asymmetry and normalization outlier sensitivity dominate overall reconstruction fidelity.
+This study implemented an unpaired multi-parametric brain MRI translation framework combining CycleGAN with MONAI. Evaluation on 360 held-out test slices confirmed that \texttt{resnet\_6blocks} achieves superior cross-modality synthesis ($20.81\text{ dB}$ PSNR, $0.692$ SSIM) compared to \texttt{unet\_128} ($18.84\text{ dB}$ PSNR, $0.611$ SSIM). Biological contrast asymmetry and intensity scaling outlier sensitivity were identified as the primary sources of cross-modality synthesis error.
 
 \end{document}

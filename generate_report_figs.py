@@ -21,41 +21,41 @@ def main() -> None:
     fig_dir = Path("report/figures")
     fig_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Render code screenshots (Slide 23 requirement)
-    print("Rendering syntax-highlighted code captures...")
+    # 1. Render concrete code screenshots (Slide 23 requirement)
+    print("Rendering syntax-highlighted concrete code captures...")
     render_code_snippet(
         "src/dataset.py",
-        134,
-        196,
-        "src/dataset.py — UnpairedBraTSDataset (MONAI Augmentation & Unpaired Domain Shuffling)",
+        175,
+        217,
+        "src/dataset.py: UnpairedBraTSDataset (Unpaired Domain Shuffling & MONAI Augmentations)",
         fig_dir / "code_dataset.png",
     )
     render_code_snippet(
         "src/networks.py",
-        74,
-        142,
-        "src/networks.py — ResnetGenerator (resnet_6blocks) & CycleGAN Architecture",
+        94,
+        136,
+        "src/networks.py: ResnetGenerator (resnet_6blocks: 2 Stride-2 Convs + 6 Residual Blocks)",
         fig_dir / "code_resnet.png",
     )
     render_code_snippet(
         "src/networks.py",
-        214,
-        280,
-        "src/networks.py — UnetGenerator (unet_128) & MONAIResUNetGenerator (monai.networks.nets.UNet)",
-        fig_dir / "code_unet_monai.png",
+        234,
+        276,
+        "src/networks.py: UnetGenerator (unet_128: 7-Level Recursive Skip Connections)",
+        fig_dir / "code_unet.png",
     )
     render_code_snippet(
         "src/cyclegan.py",
-        97,
-        166,
-        "src/cyclegan.py — CycleGAN Training Scheme (LSGAN, Cycle L1, Identity, & MONAI SSIM Loss)",
+        114,
+        155,
+        "src/cyclegan.py: CycleGAN Training Scheme (LSGAN, Cycle L1, Identity & SSIM Loss)",
         fig_dir / "code_training.png",
     )
     render_code_snippet(
         "src/metrics.py",
-        24,
-        118,
-        "src/metrics.py — Quantitative Evaluation (MONAI PSNR/SSIM/RMSE/MAE & Explicit Formulas)",
+        29,
+        72,
+        "src/metrics.py: Closed-Form PSNR & Gaussian-Windowed 2D SSIM Metrics",
         fig_dir / "code_metrics.png",
     )
 
